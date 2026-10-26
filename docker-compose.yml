@@ -1,0 +1,24 @@
+# Local PostgreSQL + PostGIS for development: `npm run db:up` starts it, `npm run db:down` stops it.
+name: fleetops
+
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    container_name: fleetops-db
+    environment:
+      POSTGRES_USER: fleetops
+      POSTGRES_PASSWORD: fleetops
+      POSTGRES_DB: fleetops
+    ports:
+      - '5432:5432'
+    volumes:
+      # Postgres 18 images keep their data under /var/lib/postgresql/<version>
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U fleetops -d fleetops']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc", "import", "node", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    // Express-only rule: Fastify handles async handlers and their rejections itself
+    "oxc/no-async-endpoint-handlers": "off"
+  },
+  "ignorePatterns": ["dist"]
+}
