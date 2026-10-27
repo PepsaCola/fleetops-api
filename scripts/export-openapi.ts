@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 
-import { buildApp } from '../src/app.ts'
+import { buildApp } from '../src/build-app.ts'
 import { loadConfig } from '../src/config/env.ts'
 
 // The frontend generates its API client from this file, so it is committed with the code

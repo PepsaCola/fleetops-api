@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { buildApp, type App } from './app.ts'
+import { buildApp, type App } from './build-app.ts'
 import { loadConfig } from './config/env.ts'
 
 describe('app', () => {

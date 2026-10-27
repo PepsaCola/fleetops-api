@@ -12,6 +12,9 @@ export function createDatabase(url: string) {
     max: 10,
     // Fail fast when the database is down, so /ready answers in seconds instead of hanging
     connect_timeout: 5,
+    // Close connections after a few idle seconds: on Vercel an idle instance is frozen, and the
+    // connections it held would otherwise go stale or keep database slots busy
+    idle_timeout: 5,
     // Postgres reports harmless NOTICEs (e.g. "extension already exists"); keep them out of logs
     onnotice: () => {},
   })
