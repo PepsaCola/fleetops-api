@@ -1,5 +1,4 @@
 import swagger, { type SwaggerTransformObject } from '@fastify/swagger'
-import swaggerUi from '@fastify/swagger-ui'
 import type { FastifyInstance } from 'fastify'
 import { jsonSchemaTransform, jsonSchemaTransformObject } from 'fastify-type-provider-zod'
 
@@ -40,6 +39,38 @@ const withoutUnusedSchemas =
     } as ReturnType<SwaggerTransformObject>
   }
 
+// Swagger UI is loaded from a CDN, pinned with integrity hashes. @fastify/swagger-ui would serve
+// the same files itself, but its @fastify/static dependency require()s an ESM-only package,
+// which Vercel's Node runtime can't load.
+const SWAGGER_UI = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.6'
+
+const DOCS_PAGE = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FleetOps API</title>
+    <link
+      rel="stylesheet"
+      href="${SWAGGER_UI}/swagger-ui.css"
+      integrity="sha384-9Q2fpS+xeS4ffJy6CagnwoUl+4ldAYhOs9pgZuEKxypVModhmZFzeMlvVsAjf7uT"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script
+      src="${SWAGGER_UI}/swagger-ui-bundle.js"
+      integrity="sha384-EYdOaiRwn44zNjrw+Tfs06qYz9BGQVo2f4/pLY5i7VorbjnZNhdplAbTBk8FXHUJ"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      SwaggerUIBundle({ url: '/docs/json', dom_id: '#swagger-ui' })
+    </script>
+  </body>
+</html>
+`
+
 /**
  * OpenAPI document built from the routes' Zod schemas, served at /docs (UI) and /docs/json.
  * Registered on the root instance, before any routes, so it sees all of them.
@@ -61,5 +92,10 @@ export async function registerOpenApi(app: FastifyInstance) {
     transform: jsonSchemaTransform,
     transformObject: withoutUnusedSchemas(jsonSchemaTransformObject),
   })
-  await app.register(swaggerUi, { routePrefix: '/docs' })
+
+  // The docs routes describe the API rather than belong to it, so they stay out of the document
+  app.get('/docs/json', { schema: { hide: true } }, () => app.swagger())
+  app.get('/docs', { schema: { hide: true } }, (_request, reply) =>
+    reply.type('text/html').send(DOCS_PAGE),
+  )
 }

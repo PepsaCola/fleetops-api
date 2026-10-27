@@ -53,5 +53,15 @@ describe('app', () => {
     expect(schemaNames).toContain('ProblemDetails')
     // Unused "…Input" twins are pruned, so the generated client only gets real types
     expect(schemaNames.filter((name) => name.endsWith('Input'))).toEqual([])
+    // The docs routes themselves are not part of the API
+    expect(Object.keys(document.paths).filter((path) => path.startsWith('/docs'))).toEqual([])
+  })
+
+  it('serves the docs page, pointed at the OpenAPI document', async () => {
+    const response = await app.inject({ method: 'GET', url: '/docs' })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/html')
+    expect(response.body).toContain("url: '/docs/json'")
   })
 })
