@@ -9,6 +9,7 @@ const repositoryWith = (overrides: Partial<VehiclesRepository>) =>
   ({
     list: async () => ({ items: [], total: 0 }),
     findById: async () => undefined,
+    listWithDepots: async () => [],
     ...overrides,
   }) as VehiclesRepository
 

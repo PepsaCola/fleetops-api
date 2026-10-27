@@ -87,6 +87,8 @@ export async function registerOpenApi(app: FastifyInstance) {
       tags: [
         { name: 'system', description: 'Health and service info' },
         { name: 'vehicles', description: 'Fleet vehicles' },
+        { name: 'drivers', description: 'Drivers and their documents' },
+        { name: 'tracking', description: 'Where the fleet is right now' },
       ],
     },
     transform: jsonSchemaTransform,

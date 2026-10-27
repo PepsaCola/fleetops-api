@@ -9,6 +9,9 @@ export function createVehiclesService({ repository }: { repository: VehiclesRepo
       return { items, total, page: query.page, pageSize: query.pageSize }
     },
 
+    /** Every vehicle with the location of its home depot (not paged: the fleet is small) */
+    listWithDepots: () => repository.listWithDepots(),
+
     async get(id: string): Promise<Vehicle> {
       const vehicle = await repository.findById(id)
       if (!vehicle) throw new NotFoundError('Vehicle', id)

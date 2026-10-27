@@ -37,7 +37,11 @@
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/swagger": "^9.9.2",
     "@fastify/websocket": "^11.3.4",
-    "@turf/turf": "^7.4.0",
+    "@turf/along": "^7.4.0",
+    "@turf/bearing": "^7.4.0",
+    "@turf/distance": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
+    "@turf/length": "^7.4.0",
     "drizzle-orm": "^0.45.4",
     "drizzle-zod": "^0.8.3",
     "fastify": "^5.12.7",
@@ -46,6 +50,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@turf/simplify": "^7.4.0",
     "@types/node": "^24.19.2",
     "dependency-cruiser": "^18.7.0",
     "drizzle-kit": "^0.31.11",

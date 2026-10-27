@@ -48,6 +48,10 @@ describe('app', () => {
         '/ready',
         '/api/v1/vehicles',
         '/api/v1/vehicles/{vehicleId}',
+        '/api/v1/drivers',
+        '/api/v1/drivers/{driverId}',
+        '/api/v1/tracking/positions',
+        '/api/v1/tracking/routes',
       ]),
     )
     expect(schemaNames).toContain('ProblemDetails')

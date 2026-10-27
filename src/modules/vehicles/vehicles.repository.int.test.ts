@@ -76,4 +76,14 @@ describe('vehicles repository', () => {
     expect(found?.homeDepot.name).toBeTruthy()
     expect(missing).toBeUndefined()
   })
+
+  it('lists every vehicle with the location of its home depot', async () => {
+    const fleet = await repository.listWithDepots()
+
+    expect(fleet).toHaveLength(40)
+    expect(fleet[0]?.homeDepot.location).toEqual({
+      lng: expect.any(Number),
+      lat: expect.any(Number),
+    })
+  })
 })

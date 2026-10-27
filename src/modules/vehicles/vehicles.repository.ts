@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, ilike, or, sql } from 'drizzle-orm'
 
 import type { Db } from '../../infra/db/client.ts'
+import { containing } from '../../infra/db/like.ts'
 import { pageOffset, parseSort } from '../../shared/http/pagination.ts'
 import { depots } from '../depots/depots.table.ts'
 import type { VehicleListQuery } from './vehicles.schemas.ts'
@@ -27,15 +28,12 @@ const SORT_COLUMNS = {
   capacityKg: vehicles.capacityKg,
 }
 
-/** Escapes LIKE wildcards, so searching for "%" finds a percent sign instead of everything. */
-const contains = (text: string) => `%${text.replace(/[\\%_]/g, '\\$&')}%`
-
 function searchFilter(search: string) {
   return or(
     // People type plates without spaces: "aa1234" should still find "AA 1234 KB"
-    ilike(sql`replace(${vehicles.plate}, ' ', '')`, contains(search.replaceAll(' ', ''))),
-    ilike(vehicles.make, contains(search)),
-    ilike(vehicles.model, contains(search)),
+    ilike(sql`replace(${vehicles.plate}, ' ', '')`, containing(search.replaceAll(' ', ''))),
+    ilike(vehicles.make, containing(search)),
+    ilike(vehicles.model, containing(search)),
   )
 }
 
@@ -69,6 +67,21 @@ export function createVehiclesRepository(db: Db) {
       ])
 
       return { items, total: totals[0]?.total ?? 0 }
+    },
+
+    /** Every vehicle with the location of its home depot, for the live map */
+    async listWithDepots() {
+      return db
+        .select({
+          id: vehicles.id,
+          plate: vehicles.plate,
+          type: vehicles.type,
+          status: vehicles.status,
+          homeDepot: { id: depots.id, name: depots.name, location: depots.location },
+        })
+        .from(vehicles)
+        .innerJoin(depots, eq(depots.id, vehicles.homeDepotId))
+        .orderBy(asc(vehicles.plate))
     },
 
     async findById(id: string) {

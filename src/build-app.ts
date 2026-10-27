@@ -10,7 +10,13 @@ import {
 import type { Config } from './config/env.ts'
 import { createDatabase, type Database } from './infra/db/client.ts'
 import { registerOpenApi } from './infra/http/openapi.ts'
+import {
+  createDriversRepository,
+  createDriversService,
+  driverRoutes,
+} from './modules/drivers/index.ts'
 import { healthRoutes } from './modules/health/index.ts'
+import { createTrackingService, trackingRoutes } from './modules/tracking/index.ts'
 import {
   createVehiclesRepository,
   createVehiclesService,
@@ -68,6 +74,13 @@ export async function buildApp(config: Config, dependencies: Dependencies = {}) 
 
   const vehicles = createVehiclesService({ repository: createVehiclesRepository(database.db) })
   await app.register(vehicleRoutes, { prefix: '/api/v1', service: vehicles })
+
+  const drivers = createDriversService({ repository: createDriversRepository(database.db) })
+  await app.register(driverRoutes, { prefix: '/api/v1', service: drivers })
+
+  // Tracking places the vehicles module's vehicles on the map
+  const tracking = createTrackingService({ listVehicles: vehicles.listWithDepots })
+  await app.register(trackingRoutes, { prefix: '/api/v1', service: tracking })
 
   return app
 }

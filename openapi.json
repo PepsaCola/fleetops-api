@@ -7,6 +7,136 @@
   },
   "components": {
     "schemas": {
+      "Driver": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "description": "International format, e.g. \"+380671234567\""
+          },
+          "licenseNumber": {
+            "type": "string"
+          },
+          "licenseCategories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Licence categories, e.g. [\"B\", \"C\", \"CE\"]"
+          },
+          "licenseExpiresOn": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "medicalExpiresOn": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "documentsExpireOn": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "description": "The earlier of the two expiry dates"
+          },
+          "documents": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "expiring",
+              "expired"
+            ],
+            "description": "\"expiring\": the first document runs out within 30 days"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "on_leave",
+              "inactive"
+            ]
+          },
+          "homeDepot": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "phone",
+          "licenseNumber",
+          "licenseCategories",
+          "licenseExpiresOn",
+          "medicalExpiresOn",
+          "documentsExpireOn",
+          "documents",
+          "status",
+          "homeDepot"
+        ],
+        "additionalProperties": false
+      },
+      "DriverPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Driver"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Items matching the filters, across all pages"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "additionalProperties": false
+      },
       "Health": {
         "type": "object",
         "properties": {
@@ -37,6 +167,152 @@
         },
         "required": [
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "VehiclePosition": {
+        "type": "object",
+        "properties": {
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "truck",
+              "van",
+              "car"
+            ]
+          },
+          "lng": {
+            "type": "number"
+          },
+          "lat": {
+            "type": "number"
+          },
+          "headingDeg": {
+            "description": "Direction of travel, degrees clockwise from north; null while standing",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "speedKmh": {
+            "type": "number"
+          },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "to_customer",
+              "at_customer",
+              "to_depot",
+              "at_depot",
+              "off_duty"
+            ]
+          },
+          "routeId": {
+            "description": "The route the vehicle drives; null when off duty",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "vehicleId",
+          "plate",
+          "type",
+          "lng",
+          "lat",
+          "headingDeg",
+          "speedKmh",
+          "activity",
+          "routeId"
+        ],
+        "additionalProperties": false
+      },
+      "FleetPositions": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "description": "The moment the positions are for"
+          },
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehiclePosition"
+            }
+          }
+        },
+        "required": [
+          "at",
+          "vehicles"
+        ],
+        "additionalProperties": false
+      },
+      "TrackingRoute": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "local",
+              "regional"
+            ]
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "description": "[lng, lat] from depot to customer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "TrackingRoutes": {
+        "type": "object",
+        "properties": {
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackingRoute"
+            }
+          }
+        },
+        "required": [
+          "routes"
         ],
         "additionalProperties": false
       },
@@ -483,6 +759,270 @@
           }
         }
       }
+    },
+    "/api/v1/drivers": {
+      "get": {
+        "operationId": "listDrivers",
+        "summary": "List drivers with filters, sorting and pagination",
+        "tags": [
+          "drivers"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "default": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "description": "1-based page number"
+          },
+          {
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "pageSize",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "on_leave",
+                "inactive"
+              ]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "depotId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "valid",
+                "expiring",
+                "expired"
+              ]
+            },
+            "in": "query",
+            "name": "documents",
+            "required": false,
+            "description": "\"expiring\": the first document runs out within 30 days"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "description": "Part of the name, phone or licence number"
+          },
+          {
+            "schema": {
+              "default": "lastName",
+              "type": "string",
+              "enum": [
+                "lastName",
+                "-lastName",
+                "documentsExpireOn",
+                "-documentsExpireOn"
+              ]
+            },
+            "in": "query",
+            "name": "sort",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverPage"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/drivers/{driverId}": {
+      "get": {
+        "operationId": "getDriver",
+        "summary": "Get one driver",
+        "tags": [
+          "drivers"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "driverId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Driver"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tracking/positions": {
+      "get": {
+        "operationId": "getFleetPositions",
+        "summary": "Where every vehicle is right now",
+        "tags": [
+          "tracking"
+        ],
+        "description": "Simulated from the clock: the demo fleet drives fixed routes on a timetable.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetPositions"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tracking/routes": {
+      "get": {
+        "operationId": "listTrackingRoutes",
+        "summary": "The roads the fleet drives, for drawing on the map",
+        "tags": [
+          "tracking"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingRoutes"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Problem Details (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
@@ -493,6 +1033,14 @@
     {
       "name": "vehicles",
       "description": "Fleet vehicles"
+    },
+    {
+      "name": "drivers",
+      "description": "Drivers and their documents"
+    },
+    {
+      "name": "tracking",
+      "description": "Where the fleet is right now"
     }
   ]
 }
