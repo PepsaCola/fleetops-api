@@ -83,6 +83,20 @@ export function createDriversRepository(db: Db) {
         .where(eq(drivers.id, id))
       return driver
     },
+
+    /** What planning trips needs: who may drive what, from which depot, and until when */
+    async listForPlanning() {
+      return db
+        .select({
+          id: drivers.id,
+          status: drivers.status,
+          homeDepotId: drivers.homeDepotId,
+          licenseCategories: drivers.licenseCategories,
+          licenseExpiresOn: drivers.licenseExpiresOn,
+          medicalExpiresOn: drivers.medicalExpiresOn,
+        })
+        .from(drivers)
+    },
   }
 }
 

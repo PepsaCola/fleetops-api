@@ -17,6 +17,7 @@ import {
 } from './modules/drivers/index.ts'
 import { healthRoutes } from './modules/health/index.ts'
 import { createTrackingService, trackingRoutes } from './modules/tracking/index.ts'
+import { createTripsRepository, createTripsService, tripRoutes } from './modules/trips/index.ts'
 import {
   createVehiclesRepository,
   createVehiclesService,
@@ -78,8 +79,19 @@ export async function buildApp(config: Config, dependencies: Dependencies = {}) 
   const drivers = createDriversService({ repository: createDriversRepository(database.db) })
   await app.register(driverRoutes, { prefix: '/api/v1', service: drivers })
 
-  // Tracking places the vehicles module's vehicles on the map
-  const tracking = createTrackingService({ listVehicles: vehicles.listWithDepots })
+  // Trips plan each day from the vehicles and drivers modules' records
+  const trips = createTripsService({
+    repository: createTripsRepository(database.db),
+    listVehicles: vehicles.listWithDepots,
+    listDrivers: drivers.listForPlanning,
+  })
+  await app.register(tripRoutes, { prefix: '/api/v1', service: trips })
+
+  // Tracking places the vehicles on the map from their trips
+  const tracking = createTrackingService({
+    listVehicles: vehicles.listWithDepots,
+    listTrips: trips.listOverlapping,
+  })
   await app.register(trackingRoutes, { prefix: '/api/v1', service: tracking })
 
   return app

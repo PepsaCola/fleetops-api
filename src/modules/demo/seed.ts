@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import type { Db } from '../../infra/db/client.ts'
 import { depots } from '../depots/depots.table.ts'
 import { drivers } from '../drivers/drivers.table.ts'
+import { scheduleDays, trips } from '../trips/trips.table.ts'
 import { vehicles } from '../vehicles/vehicles.table.ts'
 import { generateDemoData } from './demo-data.ts'
 
@@ -14,7 +15,11 @@ export async function seedDemoData(db: Db, options?: Parameters<typeof generateD
   const data = generateDemoData(options)
 
   return db.transaction(async (tx) => {
-    await tx.execute(sql`truncate table ${drivers}, ${vehicles}, ${depots} cascade`)
+    // Planned days go too, so the timetable is planned afresh for the new fleet,
+    // and trip numbers start again from the first one
+    await tx.execute(
+      sql`truncate table ${scheduleDays}, ${trips}, ${drivers}, ${vehicles}, ${depots} restart identity cascade`,
+    )
 
     const depotIds = (await tx.insert(depots).values(data.depots).returning({ id: depots.id })).map(
       (row) => row.id,

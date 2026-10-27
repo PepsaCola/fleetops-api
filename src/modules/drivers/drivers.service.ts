@@ -1,5 +1,6 @@
 import { NotFoundError } from '../../shared/errors.ts'
-import { documentState, documentsExpireOn, expiryRange, fleetToday } from './domain/documents.ts'
+import { fleetToday } from '../../shared/time/fleet-time.ts'
+import { documentState, documentsExpireOn, expiryRange } from './domain/documents.ts'
 import type { DriverRow, DriversRepository } from './drivers.repository.ts'
 import type { Driver, DriverListQuery, DriverPage } from './drivers.schemas.ts'
 
@@ -35,6 +36,9 @@ export function createDriversService({ repository, now = () => new Date() }: Dep
       if (!driver) throw new NotFoundError('Driver', id)
       return withDocuments(fleetToday(now()))(driver)
     },
+
+    /** Every driver with what decides whether they can be sent on a trip; trips plan days from it */
+    listForPlanning: () => repository.listForPlanning(),
   }
 }
 

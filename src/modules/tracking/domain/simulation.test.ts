@@ -4,15 +4,16 @@ import { describe, expect, it } from 'vitest'
 import { DEMO_DEPOTS } from '../../demo/index.ts'
 import { DEMO_ROUTES } from './demo-routes.gen.ts'
 import {
-  positionOnRoute,
+  positionOnTrip,
   prepareRoute,
-  routeFor,
-  SIMULATION_EPOCH,
+  routesFrom,
   simulateVehicle,
+  type SimulatedTrip,
   type SimulatedVehicle,
 } from './simulation.ts'
 
 const MINUTE = 60_000
+const NOW = Date.UTC(2026, 9, 27, 9)
 
 // About 14 km due east of the depot: 21 minutes each way at the local speed of 40 km/h
 const DEPOT = { lng: 30, lat: 50 }
@@ -25,8 +26,7 @@ const route = prepareRoute({
     [30.2, 50],
   ],
 })
-
-const at = (msIntoCycle: number) => positionOnRoute(route, 0, SIMULATION_EPOCH + msIntoCycle)
+const routes = new Map([[route.id, route]])
 
 const vehicle = (overrides: Partial<SimulatedVehicle> = {}): SimulatedVehicle => ({
   id: '0199d2a4-5f3e-7c11-9a2b-3c4d5e6f7a8b',
@@ -36,10 +36,16 @@ const vehicle = (overrides: Partial<SimulatedVehicle> = {}): SimulatedVehicle =>
   ...overrides,
 })
 
-describe('fleet simulation', () => {
+const tripLeaving = (departsAt: number): SimulatedTrip => ({
+  routeId: route.id,
+  departsAt: new Date(departsAt),
+  returnsAt: new Date(departsAt + route.roundTripMs),
+})
+
+describe('positions on a trip', () => {
   it('drives out from the depot, heading for the customer', () => {
-    const start = at(0)
-    const halfway = at(route.driveMs / 2)
+    const start = positionOnTrip(route, 0)
+    const halfway = positionOnTrip(route, route.driveMs / 2)
 
     expect(start).toMatchObject({ lng: 30, lat: 50, activity: 'to_customer', speedKmh: 40 })
     expect(halfway.lng).toBeCloseTo(30.1, 2)
@@ -47,8 +53,8 @@ describe('fleet simulation', () => {
   })
 
   it('stands at the customer, then drives back the other way', () => {
-    const stopped = at(route.driveMs + 10 * MINUTE)
-    const returning = at(route.driveMs + 20 * MINUTE + route.driveMs / 2)
+    const stopped = positionOnTrip(route, route.driveMs + 10 * MINUTE)
+    const returning = positionOnTrip(route, route.driveMs + 20 * MINUTE + route.driveMs / 2)
 
     expect(stopped).toMatchObject({ activity: 'at_customer', speedKmh: 0, headingDeg: null })
     expect(stopped.lng).toBeCloseTo(30.2, 5)
@@ -56,63 +62,71 @@ describe('fleet simulation', () => {
     expect(returning.headingDeg).toBeCloseTo(270, 0)
   })
 
-  it('moves smoothly and repeats every cycle', () => {
+  it('moves smoothly from leaving the depot to being back', () => {
     const step = 10_000
-    for (let t = 0; t < route.cycleMs; t += step) {
-      const a = at(t)
-      const b = at(t + step)
+    for (let t = 0; t < route.roundTripMs; t += step) {
+      const a = positionOnTrip(route, t)
+      const b = positionOnTrip(route, t + step)
       // 10 seconds at 40 km/h is about 111 m
       expect(distance([a.lng, a.lat], [b.lng, b.lat])).toBeLessThan(0.12)
     }
-    expect(at(route.cycleMs + 5 * MINUTE)).toEqual(at(5 * MINUTE))
+    expect(positionOnTrip(route, route.roundTripMs - 1).lng).toBeCloseTo(30, 3)
+  })
+})
+
+describe('vehicle positions', () => {
+  it('follows the trip the vehicle is on', () => {
+    const position = simulateVehicle(vehicle(), [tripLeaving(NOW - 10 * MINUTE)], routes, NOW)
+
+    expect(position).toMatchObject({ activity: 'to_customer', routeId: 'test-route' })
   })
 
-  it('sends vehicles out on routes of their kind from their own depot', () => {
-    const routes = [
-      route,
-      prepareRoute({
-        ...route,
-        id: 'far-away',
-        path: [
-          [35, 48],
-          [35.2, 48],
-        ],
-      }),
-    ]
+  it('waits at the depot around its trips and is off duty away from them', () => {
+    const at = (trip: SimulatedTrip) => simulateVehicle(vehicle(), [trip], routes, NOW).activity
 
-    expect(routeFor(vehicle(), routes)?.id).toBe('test-route')
-    expect(routeFor(vehicle({ type: 'truck' }), routes)).toBeUndefined()
-  })
-
-  it('keeps vehicles that are not on duty parked at their depot', () => {
-    const now = SIMULATION_EPOCH + 3 * MINUTE
-
-    expect(simulateVehicle(vehicle({ status: 'maintenance' }), [route], now)).toMatchObject({
+    expect(at(tripLeaving(NOW + 30 * MINUTE))).toBe('at_depot')
+    expect(at(tripLeaving(NOW - route.roundTripMs - 30 * MINUTE))).toBe('at_depot')
+    expect(at(tripLeaving(NOW + 3 * 60 * MINUTE))).toBe('off_duty')
+    expect(simulateVehicle(vehicle(), [], routes, NOW)).toMatchObject({
       ...DEPOT,
       activity: 'off_duty',
-      speedKmh: 0,
-    })
-    expect(simulateVehicle(vehicle({ type: 'truck' }), [route], now)).toMatchObject({
-      ...DEPOT,
-      activity: 'at_depot',
     })
   })
 
-  it('spreads vehicles that share a route along it', () => {
-    const now = SIMULATION_EPOCH + 3 * MINUTE
-    const a = simulateVehicle(vehicle({ id: 'vehicle-a' }), [route], now)
-    const b = simulateVehicle(vehicle({ id: 'vehicle-b' }), [route], now)
+  it('keeps vehicles that are not in service parked, whatever their trips say', () => {
+    const position = simulateVehicle(
+      vehicle({ status: 'maintenance' }),
+      [tripLeaving(NOW - 10 * MINUTE)],
+      routes,
+      NOW,
+    )
 
-    expect([a.lng, a.lat]).not.toEqual([b.lng, b.lat])
+    expect(position).toMatchObject({ ...DEPOT, activity: 'off_duty', speedKmh: 0 })
+  })
+})
+
+describe('routes', () => {
+  it('offers vehicles the routes of their kind from their own depot', () => {
+    const farAway = prepareRoute({
+      ...route,
+      id: 'far-away',
+      path: [
+        [35, 48],
+        [35.2, 48],
+      ],
+    })
+
+    expect(routesFrom(vehicle(), [route, farAway]).map(({ id }) => id)).toEqual(['test-route'])
+    expect(routesFrom(vehicle({ type: 'truck' }), [route, farAway])).toEqual([])
   })
 
   it('has local and regional routes from every demo depot', () => {
-    const routes = DEMO_ROUTES.map(prepareRoute)
+    const demoRoutes = DEMO_ROUTES.map(prepareRoute)
 
     for (const depot of DEMO_DEPOTS) {
       for (const type of ['van', 'truck'] as const) {
         const someVehicle = vehicle({ type, homeDepot: { location: depot.location } })
-        expect(routeFor(someVehicle, routes), `${type} at ${depot.name}`).toBeDefined()
+        expect(routesFrom(someVehicle, demoRoutes), `${type} at ${depot.name}`).not.toEqual([])
       }
     }
   })

@@ -4,4 +4,5 @@
  */
 export * from '../../modules/depots/depots.table.ts'
 export * from '../../modules/drivers/drivers.table.ts'
+export * from '../../modules/trips/trips.table.ts'
 export * from '../../modules/vehicles/vehicles.table.ts'

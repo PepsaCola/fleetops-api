@@ -15,6 +15,20 @@
       "when": 1793043890426,
       "tag": "0001_fleet_core",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793138927790,
+      "tag": "0002_trips",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793138937115,
+      "tag": "0003_trips_no_overlap",
+      "breakpoints": true
     }
   ]
 }
