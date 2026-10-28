@@ -20,6 +20,13 @@ export function addDays(date: IsoDate, days: number): IsoDate {
   return result.toISOString().slice(0, 10)
 }
 
+/** Every day from `first` to `last`, both included. */
+export function daysFrom(first: IsoDate, last: IsoDate): IsoDate[] {
+  const days: IsoDate[] = []
+  for (let day = first; day <= last; day = addDays(day, 1)) days.push(day)
+  return days
+}
+
 const fleetClock = new Intl.DateTimeFormat('en-US', {
   timeZone: FLEET_TIME_ZONE,
   hourCycle: 'h23',

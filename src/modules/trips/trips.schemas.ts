@@ -41,3 +41,19 @@ export const TripPageSchema = pageOf(TripSchema).meta({ id: 'TripPage' })
 export type TripPage = z.infer<typeof TripPageSchema>
 
 export const TripParamsSchema = z.object({ tripId: z.uuid() })
+
+// Request bodies stay unnamed: a named schema would also appear as a "…Input" twin in the docs
+export const TripCreateSchema = z.object({
+  vehicleId: z.uuid(),
+  driverId: z.uuid(),
+  routeId: z.string().min(1).describe('One of the routes from GET /tracking/routes'),
+  departsAt: z.iso
+    .datetime({ offset: true })
+    .describe('When it leaves the depot; must be later than now. The return is worked out.'),
+})
+
+export type TripCreate = z.infer<typeof TripCreateSchema>
+
+export const TripUpdateSchema = TripCreateSchema.partial()
+
+export type TripUpdate = z.infer<typeof TripUpdateSchema>

@@ -29,6 +29,34 @@
       "when": 1793138937115,
       "tag": "0003_trips_no_overlap",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793190703670,
+      "tag": "0004_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793194679213,
+      "tag": "0005_work_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793194685837,
+      "tag": "0006_work_orders_no_overlap",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793195003879,
+      "tag": "0007_workshop_days",
+      "breakpoints": true
     }
   ]
 }

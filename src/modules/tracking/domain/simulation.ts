@@ -4,10 +4,10 @@ import { distance } from '@turf/distance'
 import { lineString } from '@turf/helpers'
 import { length } from '@turf/length'
 
-// The demo fleet has no trackers, so positions are worked out from each vehicle's trips and the
-// clock: on a trip a vehicle is somewhere along its route, and between trips it waits at its
-// depot. The same trips at the same moment always give the same positions, so every server
-// instance agrees without sharing any state.
+// The demo fleet has no trackers, so positions are worked out from each vehicle's trips, its
+// time in the workshop and the clock: on a trip a vehicle is somewhere along its route, and
+// otherwise it waits at its depot. The same records at the same moment always give the same
+// positions, so every server instance agrees without sharing any state.
 
 export const ROUTE_KINDS = ['local', 'regional'] as const
 export type RouteKind = (typeof ROUTE_KINDS)[number]
@@ -27,6 +27,7 @@ export const ACTIVITIES = [
   'at_customer',
   'to_depot',
   'at_depot',
+  'in_workshop',
   'off_duty',
 ] as const
 export type Activity = (typeof ACTIVITIES)[number]
@@ -50,6 +51,9 @@ export type SimulatedVehicle = {
 
 /** A trip as positions need it: which route, and when it leaves and is back */
 export type SimulatedTrip = { routeId: string; departsAt: Date; returnsAt: Date }
+
+/** Time in the workshop, as positions need it */
+export type SimulatedWorkshopVisit = { startsAt: Date; endsAt: Date }
 
 const SPEED_KMH: Record<RouteKind, number> = { local: 40, regional: 70 }
 const ROUTE_KIND: Record<SimulatedVehicle['type'], RouteKind> = {
@@ -143,16 +147,22 @@ export function routesFrom(
 }
 
 /**
- * Where the vehicle is at `now`: along the route of the trip it is on, at its depot when one of
- * its trips is near, and off duty otherwise. `trips` are the vehicle's own.
+ * Where the vehicle is at `now`: at its depot while in the workshop, along the route of the trip
+ * it is on, at its depot when one of its trips is near, and off duty otherwise. `trips` and
+ * `workshop` are the vehicle's own.
  */
 export function simulateVehicle(
   vehicle: SimulatedVehicle,
   trips: SimulatedTrip[],
   routes: ReadonlyMap<string, PreparedRoute>,
   now: number,
+  workshop: SimulatedWorkshopVisit[] = [],
 ): SimulatedPosition {
   const { lng, lat } = vehicle.homeDepot.location
+  // A work order under way says more than the vehicle's status, so it comes first
+  if (workshop.some((visit) => visit.startsAt.getTime() <= now && now < visit.endsAt.getTime())) {
+    return standing([lng, lat], 'in_workshop', null)
+  }
   if (vehicle.status !== 'active') return standing([lng, lat], 'off_duty', null)
 
   const current = trips.find(

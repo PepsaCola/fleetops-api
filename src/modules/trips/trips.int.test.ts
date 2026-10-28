@@ -31,11 +31,29 @@ beforeAll(async () => {
     listVehicles: createVehiclesService({ repository: createVehiclesRepository(db) })
       .listWithDepots,
     listDrivers: createDriversService({ repository: createDriversRepository(db) }).listForPlanning,
+    // An empty workshop: these tests are about trips alone
+    listWorkOrders: async () => [],
     now: () => NOW,
   })
 })
 
 afterAll(() => testDatabase?.drop())
+
+/** A booking ten minutes into one of today's trips, with the same vehicle and driver */
+async function clashWithFirstTrip() {
+  const [trip] = (await service.list(query({ day: TODAY }))).items
+  const departsAt = new Date(Date.parse(trip!.departsAt) + 10 * MINUTE)
+  return {
+    trip: trip!,
+    clash: {
+      vehicleId: trip!.vehicle.id,
+      driverId: trip!.driver.id,
+      routeId: trip!.route.id,
+      departsAt,
+      returnsAt: new Date(departsAt.getTime() + 60 * MINUTE),
+    },
+  }
+}
 
 describe('trips', () => {
   it('plans a day the first time it is asked for, and only once', async () => {
@@ -59,20 +77,19 @@ describe('trips', () => {
     expect(totals.reduce((sum, total) => sum + total)).toBe(everything.total)
   })
 
-  it('never puts a vehicle or a driver on two trips at once, whoever books them', async () => {
-    const [trip] = (await service.list(query({ day: TODAY }))).items
-    const departsAt = new Date(Date.parse(trip!.departsAt) + 10 * MINUTE)
+  it('leaves out a planned trip that would overlap one already booked', async () => {
+    const { clash } = await clashWithFirstTrip()
 
-    const added = await repository.addPlannedDay('2026-12-31', [
-      {
-        vehicleId: trip!.vehicle.id,
-        driverId: trip!.driver.id,
-        routeId: trip!.route.id,
-        departsAt,
-        returnsAt: new Date(departsAt.getTime() + 60 * MINUTE),
-      },
-    ])
+    expect(await repository.addPlannedDay('2026-12-31', [clash])).toBe(0)
+  })
 
-    expect(added).toBe(0)
+  // Last: it cancels a trip, which the tests above don't expect
+  it('lets the database refuse a clash, and frees the time once the trip is cancelled', async () => {
+    const { trip, clash } = await clashWithFirstTrip()
+
+    await expect(repository.insert(clash)).rejects.toMatchObject({ code: 'TRIP_OVERLAP' })
+
+    await repository.cancel(trip.id, NOW)
+    await expect(repository.insert(clash)).resolves.toEqual(expect.any(String))
   })
 })

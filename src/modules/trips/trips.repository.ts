@@ -10,10 +10,14 @@ import {
   isNull,
   lt,
   lte,
+  ne,
+  or,
   type SQL,
 } from 'drizzle-orm'
 
 import type { Db } from '../../infra/db/client.ts'
+import { refusingOverlap } from '../../infra/db/exclusion.ts'
+import { ConflictError } from '../../shared/errors.ts'
 import { pageOffset, parseSort } from '../../shared/http/pagination.ts'
 import type { IsoDate } from '../../shared/time/fleet-time.ts'
 import { drivers } from '../drivers/drivers.table.ts'
@@ -52,6 +56,14 @@ function statusFilter(status: TripStatus, now: Date): SQL | undefined {
       return and(isNull(trips.cancelledAt), lte(trips.returnsAt, now))
   }
 }
+
+// The service checks for clashes first, so this only fires when someone else booked the same
+// vehicle or driver a moment earlier
+const overlapRefused = () =>
+  new ConflictError(
+    'TRIP_OVERLAP',
+    'The vehicle or the driver was booked for that time a moment ago',
+  )
 
 export function createTripsRepository(db: Db) {
   const selectTrips = () =>
@@ -96,6 +108,7 @@ export function createTripsRepository(db: Db) {
     async listOverlapping(from: Date, to: Date) {
       return db
         .select({
+          number: trips.number,
           vehicleId: trips.vehicleId,
           routeId: trips.routeId,
           departsAt: trips.departsAt,
@@ -110,6 +123,41 @@ export function createTripsRepository(db: Db) {
             gt(trips.returnsAt, from),
           ),
         )
+    },
+
+    /** Trips still on that would share time with a booking's vehicle or driver; `exceptId` is the trip being changed */
+    async findClashes(booking: PlannedTrip, exceptId?: string) {
+      return db
+        .select({ number: trips.number, vehicleId: trips.vehicleId, driverId: trips.driverId })
+        .from(trips)
+        .where(
+          and(
+            isNull(trips.cancelledAt),
+            or(eq(trips.vehicleId, booking.vehicleId), eq(trips.driverId, booking.driverId)),
+            lt(trips.departsAt, booking.returnsAt),
+            gt(trips.returnsAt, booking.departsAt),
+            exceptId ? ne(trips.id, exceptId) : undefined,
+          ),
+        )
+        .orderBy(asc(trips.departsAt))
+    },
+
+    /** Saves a new trip and returns its id */
+    async insert(booking: PlannedTrip) {
+      const [added] = await refusingOverlap(
+        db.insert(trips).values(booking).returning({ id: trips.id }),
+        overlapRefused,
+      )
+      if (!added) throw new Error('The trip was not saved')
+      return added.id
+    },
+
+    async update(id: string, booking: PlannedTrip) {
+      await refusingOverlap(db.update(trips).set(booking).where(eq(trips.id, id)), overlapRefused)
+    },
+
+    async cancel(id: string, at: Date) {
+      await db.update(trips).set({ cancelledAt: at }).where(eq(trips.id, id))
     },
 
     /** Whether the day's usual timetable is already in */

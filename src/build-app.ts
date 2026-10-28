@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto'
 
+import cookie from '@fastify/cookie'
+import helmet from '@fastify/helmet'
+import rateLimit from '@fastify/rate-limit'
 import Fastify from 'fastify'
 import {
   serializerCompiler,
@@ -11,11 +14,24 @@ import type { Config } from './config/env.ts'
 import { createDatabase, type Database } from './infra/db/client.ts'
 import { registerOpenApi } from './infra/http/openapi.ts'
 import {
+  authRoutes,
+  checkAccess,
+  createAuthRepository,
+  createAuthService,
+  SESSION_COOKIE,
+} from './modules/auth/index.ts'
+import { costRoutes, createCostsService } from './modules/costs/index.ts'
+import {
   createDriversRepository,
   createDriversService,
   driverRoutes,
 } from './modules/drivers/index.ts'
 import { healthRoutes } from './modules/health/index.ts'
+import {
+  createWorkOrdersRepository,
+  createWorkOrdersService,
+  workOrderRoutes,
+} from './modules/maintenance/index.ts'
 import { createTrackingService, trackingRoutes } from './modules/tracking/index.ts'
 import { createTripsRepository, createTripsService, tripRoutes } from './modules/trips/index.ts'
 import {
@@ -71,28 +87,78 @@ export async function buildApp(config: Config, dependencies: Dependencies = {}) 
   if (!dependencies.database) app.addHook('onClose', () => database.close())
 
   await registerOpenApi(app)
+  await app.register(cookie)
+  // The API answers JSON; the one HTML page, /docs, loads Swagger UI from a CDN with an inline
+  // script, so a Content-Security-Policy would only get in its way
+  await app.register(helmet, { contentSecurityPolicy: false })
+  // Off by default; routes that need a limit (signing in) set their own
+  await app.register(rateLimit, {
+    global: false,
+    errorResponseBuilder: (_request, context) =>
+      Object.assign(new Error(`Too many attempts; try again in ${context.after}`), {
+        statusCode: 429,
+        code: 'TOO_MANY_REQUESTS',
+      }),
+  })
   await app.register(healthRoutes, { checkDatabase: database.ping })
 
-  const vehicles = createVehiclesService({ repository: createVehiclesRepository(database.db) })
-  await app.register(vehicleRoutes, { prefix: '/api/v1', service: vehicles })
-
-  const drivers = createDriversService({ repository: createDriversRepository(database.db) })
-  await app.register(driverRoutes, { prefix: '/api/v1', service: drivers })
-
-  // Trips plan each day from the vehicles and drivers modules' records
-  const trips = createTripsService({
-    repository: createTripsRepository(database.db),
-    listVehicles: vehicles.listWithDepots,
-    listDrivers: drivers.listForPlanning,
+  const auth = createAuthService({ repository: createAuthRepository(database.db) })
+  await app.register(authRoutes, {
+    prefix: '/api/v1',
+    service: auth,
+    secureCookies: config.env === 'production',
   })
-  await app.register(tripRoutes, { prefix: '/api/v1', service: trips })
 
-  // Tracking places the vehicles on the map from their trips
-  const tracking = createTrackingService({
-    listVehicles: vehicles.listWithDepots,
-    listTrips: trips.listOverlapping,
-  })
-  await app.register(trackingRoutes, { prefix: '/api/v1', service: tracking })
+  // Everything else in the API needs a signed-in user, and changing anything needs a dispatcher
+  await app.register(
+    async (api) => {
+      api.addHook('onRequest', async (request) => {
+        const user = await auth.authenticate(request.cookies[SESSION_COOKIE])
+        request.currentUser = checkAccess(user, request.method)
+      })
+
+      const vehicles = createVehiclesService({ repository: createVehiclesRepository(database.db) })
+      await api.register(vehicleRoutes, { service: vehicles })
+
+      const drivers = createDriversService({ repository: createDriversRepository(database.db) })
+      await api.register(driverRoutes, { service: drivers })
+
+      // A vehicle can't be on a trip and in the workshop at once, so trips and work orders each
+      // ask the other. Trips reach the work orders service through a function, called only once
+      // requests arrive, by which time the service below exists.
+      const trips = createTripsService({
+        repository: createTripsRepository(database.db),
+        listVehicles: vehicles.listWithDepots,
+        listDrivers: drivers.listForPlanning,
+        listWorkOrders: (from, to) => workOrders.listBetween(from, to),
+      })
+      const workOrders = createWorkOrdersService({
+        repository: createWorkOrdersRepository(database.db),
+        listVehicles: vehicles.listWithDepots,
+        listTrips: trips.listOverlapping,
+      })
+      await api.register(tripRoutes, { service: trips })
+      await api.register(workOrderRoutes, { service: workOrders })
+
+      // Costs add up the trips' fuel and the workshop's bills
+      const costs = createCostsService({
+        listVehicles: vehicles.listWithDepots,
+        listTrips: trips.listOnDays,
+        listWorkOrders: async (from, to) =>
+          (await workOrders.list({ from, to, status: 'done' })).items,
+      })
+      await api.register(costRoutes, { service: costs })
+
+      // Tracking places the vehicles on the map from their trips and their time in the workshop
+      const tracking = createTrackingService({
+        listVehicles: vehicles.listWithDepots,
+        listTrips: trips.listOverlapping,
+        listWorkOrders: workOrders.listBetween,
+      })
+      await api.register(trackingRoutes, { service: tracking })
+    },
+    { prefix: '/api/v1' },
+  )
 
   return app
 }

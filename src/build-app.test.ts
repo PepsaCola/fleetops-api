@@ -36,6 +36,25 @@ describe('app', () => {
     expect(response.json()).toMatchObject({ status: 404, code: 'ROUTE_NOT_FOUND' })
   })
 
+  it('keeps the API for signed-in users', async () => {
+    const read = await app.inject({ method: 'GET', url: '/api/v1/vehicles' })
+    const change = await app.inject({
+      method: 'POST',
+      url: '/api/v1/trips/0199d2a4-5f3e-7c11-9a2b-3c4d5e6f7a8b/cancel',
+    })
+
+    expect(read.statusCode).toBe(401)
+    expect(read.json()).toMatchObject({ code: 'UNAUTHORIZED' })
+    expect(change.statusCode).toBe(401)
+  })
+
+  it('sends security headers', async () => {
+    const response = await app.inject({ method: 'GET', url: '/health' })
+
+    expect(response.headers['x-content-type-options']).toBe('nosniff')
+    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN')
+  })
+
   it('publishes an OpenAPI 3.1 document of every module', async () => {
     const response = await app.inject({ method: 'GET', url: '/docs/json' })
     const document = response.json()
@@ -46,6 +65,9 @@ describe('app', () => {
       expect.arrayContaining([
         '/health',
         '/ready',
+        '/api/v1/auth/login',
+        '/api/v1/auth/logout',
+        '/api/v1/auth/me',
         '/api/v1/vehicles',
         '/api/v1/vehicles/{vehicleId}',
         '/api/v1/drivers',

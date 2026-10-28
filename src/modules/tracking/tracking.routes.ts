@@ -16,7 +16,7 @@ export const trackingRoutes: FastifyPluginAsyncZod<TrackingRoutesOptions> = asyn
         tags: ['tracking'],
         operationId: 'getFleetPositions',
         summary: 'Where every vehicle is right now',
-        description: 'Simulated from the clock: the demo fleet drives fixed routes on a timetable.',
+        description: 'Worked out from the trips and the clock: the demo fleet has no trackers.',
         response: { 200: FleetPositionsSchema },
       },
     },
@@ -33,13 +33,14 @@ export const trackingRoutes: FastifyPluginAsyncZod<TrackingRoutesOptions> = asyn
       schema: {
         tags: ['tracking'],
         operationId: 'listTrackingRoutes',
-        summary: 'The roads the fleet drives, for drawing on the map',
+        summary: 'The roads the fleet drives, with how long a trip on each takes',
         response: { 200: TrackingRoutesSchema },
       },
     },
     async (_request, reply) => {
-      // The routes only change with a deploy
-      reply.header('cache-control', 'public, max-age=3600')
+      // The routes change only with a deploy, but then they may change shape, so browsers must
+      // not answer from an old copy. They're small, and a page asks for them once.
+      reply.header('cache-control', 'no-cache')
       return service.routes()
     },
   )

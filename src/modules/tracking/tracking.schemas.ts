@@ -37,6 +37,11 @@ export const TrackingRouteSchema = z
     name: z.string(),
     kind: z.enum(ROUTE_KINDS),
     path: z.array(z.tuple([z.number(), z.number()])).describe('[lng, lat] from depot to customer'),
+    driveMs: z.number().int().describe('Driving time from the depot to the customer, in ms'),
+    roundTripMs: z
+      .number()
+      .int()
+      .describe('A whole trip, in ms: out, unloading at the customer, and back to the depot'),
   })
   .meta({ id: 'TrackingRoute' })
 

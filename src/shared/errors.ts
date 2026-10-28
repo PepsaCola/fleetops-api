@@ -23,9 +23,20 @@ export class NotFoundError extends AppError {
   }
 }
 
-/** A business rule blocks the request, e.g. TRIP_CONFLICT when a vehicle is already busy. */
+/** A business rule blocks the request, e.g. TRIP_OVERLAP when a vehicle is already busy. */
 export class ConflictError extends AppError {
   override readonly status = 409
+  override readonly code: string
+
+  constructor(code: string, message: string, details?: Record<string, unknown>) {
+    super(message, details)
+    this.code = code
+  }
+}
+
+/** The request is well-formed but asks for what the rules don't allow, e.g. a truck without a C licence. */
+export class UnprocessableError extends AppError {
+  override readonly status = 422
   override readonly code: string
 
   constructor(code: string, message: string, details?: Record<string, unknown>) {

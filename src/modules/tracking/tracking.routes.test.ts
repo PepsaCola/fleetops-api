@@ -32,6 +32,8 @@ const routes: TrackingRoutes = {
         [30, 50],
         [30.2, 50],
       ],
+      driveMs: 1_284_000,
+      roundTripMs: 3_768_000,
     },
   ],
 }
@@ -53,13 +55,13 @@ describe('tracking routes', () => {
     expect(response.json()).toEqual(positions)
   })
 
-  it('answers with the routes, cacheable for an hour', async () => {
+  it('answers with the routes, never from an old copy', async () => {
     const app = await serverWith({ routes: () => routes })
 
     const response = await app.inject({ method: 'GET', url: '/api/v1/tracking/routes' })
 
     expect(response.statusCode).toBe(200)
-    expect(response.headers['cache-control']).toBe('public, max-age=3600')
+    expect(response.headers['cache-control']).toBe('no-cache')
     expect(response.json()).toEqual(routes)
   })
 })

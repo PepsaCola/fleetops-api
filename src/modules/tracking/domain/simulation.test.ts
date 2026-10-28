@@ -103,6 +103,18 @@ describe('vehicle positions', () => {
 
     expect(position).toMatchObject({ ...DEPOT, activity: 'off_duty', speedKmh: 0 })
   })
+
+  it('stands at its depot while in the workshop, even with a trip booked then', () => {
+    const visit = { startsAt: new Date(NOW - 60 * MINUTE), endsAt: new Date(NOW + 60 * MINUTE) }
+
+    expect(
+      simulateVehicle(vehicle(), [tripLeaving(NOW - 10 * MINUTE)], routes, NOW, [visit]),
+    ).toMatchObject({ ...DEPOT, activity: 'in_workshop', speedKmh: 0, routeId: null })
+    // A vehicle in maintenance with a work order under way is in the workshop, not just away
+    expect(
+      simulateVehicle(vehicle({ status: 'maintenance' }), [], routes, NOW, [visit]).activity,
+    ).toBe('in_workshop')
+  })
 })
 
 describe('routes', () => {

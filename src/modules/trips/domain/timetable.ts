@@ -38,7 +38,11 @@ const SHIFT_MS = 10 * 60 * MINUTE
 /** Loading, refuelling and paperwork at the depot between two trips */
 const TURNAROUND_MS = 40 * MINUTE
 /** Trucks need category C; vans and cars are driven on a B licence */
-const LICENSE_FOR: Record<PlanningVehicle['type'], string> = { truck: 'C', van: 'B', car: 'B' }
+export const LICENSE_FOR: Record<PlanningVehicle['type'], string> = {
+  truck: 'C',
+  van: 'B',
+  car: 'B',
+}
 
 /** When the vehicle's shift starts, in minutes after midnight, always on a quarter hour. */
 function shiftStart(vehicle: PlanningVehicle) {

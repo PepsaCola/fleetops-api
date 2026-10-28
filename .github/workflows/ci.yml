@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes a run still going pointless
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Types, lint, format, unit tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      # The frontend builds its API client from this file, so it must match the code
+      - name: OpenAPI document is up to date
+        run: |
+          npm run openapi:export
+          git diff --exit-code openapi.json
+
+  integration:
+    name: Integration tests on PostGIS
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_USER: fleetops
+          POSTGRES_PASSWORD: fleetops
+          POSTGRES_DB: fleetops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fleetops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Each test file creates, migrates and drops a database of its own on this server
+      DATABASE_URL: postgres://fleetops:fleetops@localhost:5432/fleetops
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:int

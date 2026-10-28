@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { ConflictError } from '../../shared/errors.ts'
 import { createTestServer } from '../../shared/http/test-server.ts'
 import { tripRoutes } from './trips.routes.ts'
 import type { Trip } from './trips.schemas.ts'
@@ -22,6 +23,13 @@ const trip: Trip = {
   arrivesAt: '2026-10-27T08:40:00.000Z',
   returnsAt: '2026-10-27T09:40:00.000Z',
   cancelledAt: null,
+}
+
+const booking = {
+  vehicleId: trip.vehicle.id,
+  driverId: trip.driver.id,
+  routeId: trip.route.id,
+  departsAt: '2026-10-28T08:00:00.000Z',
 }
 
 async function serverWith(service: Partial<TripsService>) {
@@ -71,11 +79,52 @@ describe('trip routes', () => {
   })
 
   it('returns one trip by id', async () => {
-    const app = await serverWith({ get: async () => trip })
+    const app = await serverWith({ get: vi.fn<TripsService['get']>(async () => trip) })
 
     const response = await app.inject({ method: 'GET', url: `/api/v1/trips/${TRIP_ID}` })
 
     expect(response.statusCode).toBe(200)
     expect(response.json()).toEqual(trip)
+  })
+
+  it('books a trip and answers 201 with it', async () => {
+    const create = vi.fn<TripsService['create']>(async () => trip)
+    const app = await serverWith({ create })
+
+    const response = await app.inject({ method: 'POST', url: '/api/v1/trips', payload: booking })
+
+    expect(response.statusCode).toBe(201)
+    expect(create).toHaveBeenCalledWith(booking)
+    expect(response.json()).toEqual(trip)
+  })
+
+  it('asks for everything a booking needs', async () => {
+    const create = vi.fn<TripsService['create']>()
+    const app = await serverWith({ create })
+
+    const response = await app.inject({ method: 'POST', url: '/api/v1/trips', payload: {} })
+
+    expect(response.statusCode).toBe(400)
+    expect(Object.keys(response.json().errors).sort()).toEqual([
+      'departsAt',
+      'driverId',
+      'routeId',
+      'vehicleId',
+    ])
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('answers 409 Problem Details when the vehicle is busy then', async () => {
+    const create = vi.fn<TripsService['create']>(async () => {
+      throw new ConflictError('TRIP_OVERLAP', 'The vehicle is on trip 1042 at that time', {
+        trips: [1042],
+      })
+    })
+    const app = await serverWith({ create })
+
+    const response = await app.inject({ method: 'POST', url: '/api/v1/trips', payload: booking })
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json()).toMatchObject({ code: 'TRIP_OVERLAP' })
   })
 })
