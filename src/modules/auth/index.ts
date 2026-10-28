@@ -1,4 +1,4 @@
-export { checkAccess } from './access.ts'
+export { checkAccess, checkRequestSite } from './access.ts'
 export { createAuthRepository, type SessionUser } from './auth.repository.ts'
 export { authRoutes, SESSION_COOKIE } from './auth.routes.ts'
 export { createAuthService, type AuthService } from './auth.service.ts'

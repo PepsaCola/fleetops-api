@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { checkAccess } from './access.ts'
+import { checkAccess, checkRequestSite } from './access.ts'
 
 const dispatcher = {
   id: '0199d2a4-0000-7000-8000-000000000001',
@@ -24,5 +24,17 @@ describe('access', () => {
   it('lets a dispatcher change things', () => {
     expect(checkAccess(dispatcher, 'POST')).toBe(dispatcher)
     expect(checkAccess(dispatcher, 'PATCH')).toBe(dispatcher)
+  })
+
+  it('takes changes only from FleetOps pages, while anyone may read', () => {
+    expect(() => checkRequestSite('POST', 'same-origin')).not.toThrow()
+    expect(() => checkRequestSite('POST', undefined)).not.toThrow()
+    expect(() => checkRequestSite('GET', 'cross-site')).not.toThrow()
+    expect(() => checkRequestSite('POST', 'cross-site')).toThrow(
+      expect.objectContaining({ status: 403 }),
+    )
+    expect(() => checkRequestSite('PATCH', 'same-site')).toThrow(
+      expect.objectContaining({ status: 403 }),
+    )
   })
 })

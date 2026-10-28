@@ -13,31 +13,33 @@ const user = {
   role: 'dispatcher' as const,
 }
 
-async function serverWith(service: Partial<AuthService>) {
+const session = { token: 'token-1', expiresAt: new Date('2026-11-04T10:00:00Z'), user }
+
+async function serverWith(service: Partial<AuthService>, secureCookies = true) {
   const app = createTestServer()
   await app.register(cookie)
   await app.register(authRoutes, {
     prefix: '/api/v1',
     service: service as AuthService,
-    secureCookies: true,
+    secureCookies,
   })
   return app
 }
 
+function signIn(app: Awaited<ReturnType<typeof serverWith>>) {
+  return app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/login',
+    payload: { email: user.email, password: 'fleetops-demo' },
+  })
+}
+
 describe('auth routes', () => {
-  it('signs in, keeping the session in an httpOnly cookie', async () => {
-    const login = vi.fn<AuthService['login']>(async () => ({
-      token: 'token-1',
-      expiresAt: new Date('2026-11-04T10:00:00Z'),
-      user,
-    }))
+  it('signs in, keeping the session in an httpOnly cookie that also works in iframes', async () => {
+    const login = vi.fn<AuthService['login']>(async () => session)
     const app = await serverWith({ login })
 
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: { email: user.email, password: 'fleetops-demo' },
-    })
+    const response = await signIn(app)
 
     expect(response.statusCode).toBe(200)
     expect(response.json()).toEqual(user)
@@ -47,8 +49,20 @@ describe('auth routes', () => {
       path: '/',
       httpOnly: true,
       secure: true,
-      sameSite: 'Lax',
+      sameSite: 'None',
+      partitioned: true,
     })
+  })
+
+  it('keeps a plain SameSite=Lax cookie on http://localhost', async () => {
+    const login = vi.fn<AuthService['login']>(async () => session)
+    const app = await serverWith({ login }, false)
+
+    const response = await signIn(app)
+
+    expect(response.cookies[0]).toMatchObject({ httpOnly: true, sameSite: 'Lax' })
+    expect(response.cookies[0]).not.toHaveProperty('secure')
+    expect(response.cookies[0]).not.toHaveProperty('partitioned')
   })
 
   it('answers 401 Problem Details for a wrong password', async () => {

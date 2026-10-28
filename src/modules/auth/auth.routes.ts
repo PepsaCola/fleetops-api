@@ -10,7 +10,7 @@ export const SESSION_COOKIE = 'fleetops_session'
 
 export type AuthRoutesOptions = {
   service: AuthService
-  /** Secure cookies travel over HTTPS only: on in production, off for http://localhost */
+  /** HTTPS only cookies: on in production, off for http://localhost */
   secureCookies: boolean
 }
 
@@ -18,13 +18,14 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
   app,
   { service, secureCookies },
 ) => {
-  // httpOnly keeps the token away from scripts; SameSite=Lax keeps it off other sites' requests
-  const cookieOptions = {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: secureCookies,
-  } as const
+  // httpOnly keeps the token away from scripts. Over HTTPS the cookie is SameSite=None and
+  // Partitioned, so signing in also works inside another site's iframe (a portfolio page): the
+  // browser keeps a separate cookie for each site that embeds the app, and a Lax one would never
+  // reach the iframe. checkRequestSite stops other sites from changing anything with it.
+  // Browsers only take SameSite=None over HTTPS, so http://localhost keeps Lax.
+  const cookieOptions = secureCookies
+    ? ({ path: '/', httpOnly: true, secure: true, sameSite: 'none', partitioned: true } as const)
+    : ({ path: '/', httpOnly: true, sameSite: 'lax' } as const)
 
   app.post(
     '/auth/login',

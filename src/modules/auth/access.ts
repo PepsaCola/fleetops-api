@@ -22,3 +22,14 @@ export function checkAccess(user: SessionUser | null, method: string): SessionUs
   }
   return user
 }
+
+/**
+ * Changes must come from FleetOps's own pages. The session cookie also travels with requests
+ * other sites start (it has to, to work inside their iframes), so a change the browser marks as
+ * started elsewhere (Sec-Fetch-Site) is refused. Callers that send no such header, like curl or
+ * tests, aren't browsers and carry nobody else's cookie.
+ */
+export function checkRequestSite(method: string, fetchSite: string | undefined) {
+  if (READS.has(method) || fetchSite === undefined || fetchSite === 'same-origin') return
+  throw new ForbiddenError('Changes can only be made from FleetOps itself')
+}

@@ -16,6 +16,7 @@ import { registerOpenApi } from './infra/http/openapi.ts'
 import {
   authRoutes,
   checkAccess,
+  checkRequestSite,
   createAuthRepository,
   createAuthService,
   SESSION_COOKIE,
@@ -82,6 +83,11 @@ export async function buildApp(config: Config, dependencies: Dependencies = {}) 
   app.addHook('onRoute', addProblemResponses)
   app.addHook('onRequest', async (request, reply) => {
     reply.header('x-request-id', request.id)
+  })
+  // The session cookie also works inside other sites' iframes, so only FleetOps's own pages may
+  // change anything, signing in included
+  app.addHook('onRequest', async (request) => {
+    checkRequestSite(request.method, request.headers['sec-fetch-site'])
   })
   // The app owns the connection pool it created: close it together with the server
   if (!dependencies.database) app.addHook('onClose', () => database.close())
